@@ -1,0 +1,70 @@
+# ---------------------------------------------------------------------------
+# Build output
+# ---------------------------------------------------------------------------
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+publish/
+
+# ---------------------------------------------------------------------------
+# NuGet
+# ---------------------------------------------------------------------------
+*.nupkg
+*.snupkg
+packages/
+!packages/build/
+project.lock.json
+project.fragment.lock.json
+.nuget/
+
+# ---------------------------------------------------------------------------
+# IDE and editor
+# ---------------------------------------------------------------------------
+.vs/
+.idea/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.sln.iml
+*.swp
+*~
+
+# ---------------------------------------------------------------------------
+# Test and diagnostics
+# ---------------------------------------------------------------------------
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+BenchmarkDotNet.Artifacts/
+
+# ---------------------------------------------------------------------------
+# OS clutter
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------------------------------------------------------------------------
+# SSHRTM metric dumps
+#
+# Dumps carry internal hostnames, filesystem layouts, process names and
+# capacity figures, so they are kept out of the repository by default. To
+# commit a specific dump anyway — a small, sanitised sample for others to try
+# the app with, say — force it past this rule:
+#
+#     git add -f samples/example-dump.csv
+# ---------------------------------------------------------------------------
+*.csv
+
+# ---------------------------------------------------------------------------
+# Charts exported from the app. The README screenshots under
+# docs/screenshots/ are deliberately NOT ignored — they are part of the docs.
+# ---------------------------------------------------------------------------
+*-chart.png
+*-chart.jpg
+*-chart.bmp

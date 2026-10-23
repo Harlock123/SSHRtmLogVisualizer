@@ -1,0 +1,264 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="using:SSHRtmLogVisualizer.ViewModels"
+        xmlns:models="using:SSHRtmLogVisualizer.Models"
+        xmlns:sp="using:ScottPlot.Avalonia"
+        mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="800"
+        x:Class="SSHRtmLogVisualizer.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        x:CompileBindings="True"
+        Width="1280" Height="800"
+        MinWidth="900" MinHeight="600"
+        Background="{DynamicResource AppWindowBackground}"
+        Foreground="{DynamicResource AppForeground}"
+        Title="SSHRTM Log Visualizer">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.sectionHeader">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+        <Style Selector="TextBlock.hint">
+            <Setter Property="Opacity" Value="0.65" />
+            <Setter Property="FontSize" Value="11" />
+        </Style>
+        <!-- The stock flyout presenter caps out around 456px, which clips the measure picker. -->
+        <Style Selector="FlyoutPresenter.measurePicker">
+            <Setter Property="MaxWidth" Value="660" />
+            <Setter Property="MaxHeight" Value="680" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style Selector="Button.listAction">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+        </Style>
+    </Window.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="12">
+
+        <!-- File selection + theme picker -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto,Auto" Margin="0,0,0,10">
+            <Button Grid.Column="0"
+                    Name="OpenFileButton"
+                    Click="OnOpenFileClick"
+                    Padding="16,8"
+                    FontWeight="SemiBold"
+                    Content="Open CSV Dump…" />
+            <TextBlock Grid.Column="1"
+                       Margin="14,0,14,0"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       Text="{Binding LoadedFileDescription}" />
+
+            <TextBlock Grid.Column="2"
+                       VerticalAlignment="Center"
+                       Margin="0,0,8,0"
+                       Text="Theme:" />
+            <ComboBox Grid.Column="3"
+                      MinWidth="190"
+                      VerticalAlignment="Center"
+                      ItemsSource="{Binding Themes}"
+                      SelectedItem="{Binding SelectedTheme, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="models:AppTheme">
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <!-- Measure picker -->
+        <Border Grid.Row="1"
+                Background="{DynamicResource AppPanelBackground}"
+                BorderBrush="{DynamicResource AppBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                Padding="10"
+                Margin="0,0,0,10"
+                IsEnabled="{Binding IsFileLoaded}">
+            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto">
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0"
+                           Text="Measures:" />
+
+                <DropDownButton Grid.Column="1"
+                                HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Left"
+                                Padding="10,6"
+                                Content="{Binding MeasurePickerCaption}">
+                    <DropDownButton.Flyout>
+                        <Flyout Placement="BottomEdgeAlignedLeft"
+                                FlyoutPresenterClasses="measurePicker">
+                            <Grid x:DataType="vm:MainWindowViewModel"
+                                  RowDefinitions="Auto,Auto,*,Auto"
+                                  Width="560"
+                                  Height="520">
+                                <TextBox Grid.Row="0"
+                                         PlaceholderText="Filter measures… (e.g. cpu, mem, disk)"
+                                         Text="{Binding MetricFilter, Mode=TwoWay}" />
+
+                                <TextBlock Grid.Row="1"
+                                           Classes="hint"
+                                           Margin="2,8,2,6"
+                                           Text="Click to tick measures. Ctrl+A ticks everything shown." />
+
+                                <ListBox Grid.Row="2"
+                                         ItemsSource="{Binding AvailableMetrics}"
+                                         Selection="{Binding MetricSelection}"
+                                         SelectionMode="Multiple,Toggle">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="models:MetricColumn">
+                                            <TextBlock Text="{Binding Name}" />
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+
+                                <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+                                    <TextBlock Grid.Column="0"
+                                               Classes="hint"
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               Text="{Binding PendingSelectionSummary}" />
+                                    <Button Grid.Column="1"
+                                            Margin="10,0,0,0"
+                                            Padding="16,6"
+                                            FontWeight="SemiBold"
+                                            Content="Add selected →"
+                                            Command="{Binding AddMetricCommand}" />
+                                </Grid>
+                            </Grid>
+                        </Flyout>
+                    </DropDownButton.Flyout>
+                </DropDownButton>
+            </Grid>
+        </Border>
+
+        <!-- Visualize list + chart -->
+        <Grid Grid.Row="2" ColumnDefinitions="360,Auto,*">
+
+            <Border Grid.Column="0"
+                    Background="{DynamicResource AppPanelBackground}"
+                    BorderBrush="{DynamicResource AppBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="10">
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto,Auto">
+                    <TextBlock Grid.Row="0"
+                               Classes="sectionHeader"
+                               IsVisible="{Binding HasPresets}"
+                               Text="Quick add" />
+
+                    <ItemsControl Grid.Row="1"
+                                  Margin="0,0,0,12"
+                                  IsVisible="{Binding HasPresets}"
+                                  ItemsSource="{Binding Presets}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="models:MetricPreset">
+                                <Button Margin="0,0,6,6"
+                                        Padding="10,5"
+                                        FontSize="12"
+                                        Content="{Binding Caption}"
+                                        Command="{Binding AddCommand}"
+                                        ToolTip.Tip="{Binding Tooltip}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Grid.Row="2"
+                               Classes="sectionHeader"
+                               Text="Measures to visualize" />
+
+                    <ListBox Grid.Row="3"
+                             Name="VisualizeList"
+                             SelectionMode="Single"
+                             ItemsSource="{Binding SelectedMetrics}"
+                             SelectedIndex="{Binding SelectedListIndex, Mode=TwoWay}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:MetricColumn">
+                                <StackPanel Spacing="1">
+                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Classes="hint" Text="{Binding RangeSummary}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <UniformGrid Grid.Row="4" Columns="2" Rows="2" Margin="0,10,0,0">
+                        <Button Classes="listAction" Margin="0,0,4,4"
+                                Content="Move Up"
+                                Command="{Binding MoveUpCommand}" />
+                        <Button Classes="listAction" Margin="4,0,0,4"
+                                Content="Move Down"
+                                Command="{Binding MoveDownCommand}" />
+                        <Button Classes="listAction" Margin="0,4,4,0"
+                                Content="Remove Selected"
+                                Command="{Binding RemoveSelectedCommand}" />
+                        <Button Classes="listAction" Margin="4,4,0,0"
+                                Content="Clear List"
+                                Command="{Binding ClearListCommand}" />
+                    </UniformGrid>
+
+                    <CheckBox Grid.Row="5"
+                              Margin="0,10,0,0"
+                              IsChecked="{Binding NormalizeSeries, Mode=TwoWay}"
+                              Content="Normalize each series to 0–100 %"
+                              ToolTip.Tip="Rescales every measure onto a common 0–100 axis so values with very different magnitudes (byte counts next to percentages) stay readable together." />
+                </Grid>
+            </Border>
+
+            <GridSplitter Grid.Column="1" Width="6" Background="Transparent" />
+
+            <Border Grid.Column="2"
+                    Background="{DynamicResource AppPanelBackground}"
+                    BorderBrush="{DynamicResource AppBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="4">
+                <Grid RowDefinitions="*,Auto">
+                    <sp:AvaPlot Grid.Row="0" Name="Chart" />
+
+                    <Grid Grid.Row="1" ColumnDefinitions="Auto,Auto,*,Auto" Margin="4,8,4,4">
+                        <Button Grid.Column="0"
+                                Name="SaveImageButton"
+                                Click="OnSaveImageClick"
+                                Padding="14,8"
+                                Content="Save Image…"
+                                ToolTip.Tip="Write the chart to a PNG, JPEG or BMP file."
+                                IsEnabled="{Binding HasMetricsToVisualize}" />
+                        <Button Grid.Column="1"
+                                Name="CopyImageButton"
+                                Click="OnCopyImageClick"
+                                Margin="8,0,0,0"
+                                Padding="14,8"
+                                Content="Copy to Clipboard"
+                                ToolTip.Tip="Copy the chart as a PNG so it can be pasted into another app."
+                                IsEnabled="{Binding HasMetricsToVisualize}" />
+
+                        <Button Grid.Column="3"
+                                Name="VisualizeButton"
+                                Click="OnVisualizeClick"
+                                Padding="24,10"
+                                FontWeight="Bold"
+                                Content="DO THE VISUALIZE"
+                                IsEnabled="{Binding HasMetricsToVisualize}" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="3"
+                   Margin="2,10,2,0"
+                   TextTrimming="CharacterEllipsis"
+                   Classes="hint"
+                   Text="{Binding StatusText}" />
+    </Grid>
+</Window>
