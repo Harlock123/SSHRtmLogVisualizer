@@ -43,11 +43,11 @@ public partial class MainWindow : Window
         {
             IReadOnlyList<IStorageFile> picked = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
             {
-                Title = "Select an SSHRTM CSV dump",
+                Title = "Open a CSV file",
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
-                    new FilePickerFileType("SSHRTM CSV dump") { Patterns = new[] { "*.csv" } },
+                    new FilePickerFileType("CSV and text files") { Patterns = new[] { "*.csv", "*.tsv", "*.txt", "*.log" } },
                     FilePickerFileTypes.All,
                 },
             });
@@ -78,7 +78,7 @@ public partial class MainWindow : Window
         {
             RenderChart();
             _viewModel.StatusText =
-                $"Charted {_viewModel.SelectedMetrics.Count:N0} measure(s) across {_viewModel.LogFile?.RowCount ?? 0:N0} samples. " +
+                $"Charted {_viewModel.SelectedMetrics.Count:N0} measure(s) across {_viewModel.LogFile?.RowCount ?? 0:N0} rows. " +
                 "Scroll to zoom, drag to pan.";
         }
         catch (Exception ex)
@@ -120,7 +120,7 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Loads a dump by path, reporting any failure in the status bar rather than crashing.</summary>
+    /// <summary>Loads a CSV file by path, reporting any failure in the status bar rather than crashing.</summary>
     public void TryLoadFile(string path)
     {
         try
@@ -130,8 +130,8 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            _viewModel.StatusText = $"Could not load the dump: {ex.Message}";
-            _viewModel.LoadedFileDescription = "No dump loaded — click \"Open CSV Dump…\" to pick one.";
+            _viewModel.StatusText = $"Could not load the file: {ex.Message}";
+            _viewModel.LoadedFileDescription = MainWindowViewModel.NothingLoaded;
         }
     }
 
@@ -149,7 +149,7 @@ public partial class MainWindow : Window
         var metrics = new List<MetricColumn>(_viewModel.SelectedMetrics);
         ChartPalette palette = ThemeManager.ResolveChart(_viewModel.SelectedTheme, ActualThemeVariant);
 
-        ChartRenderer.Render(Chart.Plot, _viewModel.LogFile, metrics, _viewModel.NormalizeSeries, palette);
+        ChartRenderer.Render(Chart.Plot, _viewModel.LogFile, _viewModel.SelectedXAxis, metrics, _viewModel.NormalizeSeries, palette);
         Chart.Refresh();
     }
 }

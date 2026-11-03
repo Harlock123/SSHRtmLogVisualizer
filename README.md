@@ -1,8 +1,9 @@
 # SSHRTM Log Visualizer
 
-A cross-platform desktop app that turns an SSHRTM CSV metric dump into a multi-series line
-chart. Point it at a dump, pick the measures you care about, and plot them against the sample
-timeline.
+A cross-platform desktop app that turns a CSV file into a multi-series line chart. It was built
+for SSHRTM metric dumps, and it reads any other CSV too: weather logs, sensor readings, exported
+spreadsheets, server stats. Point it at a file, pick the columns you care about, and plot them
+against the file's own timeline.
 
 Built with [Avalonia](https://avaloniaui.net/) 12 on .NET 9, charting with
 [ScottPlot](https://scottplot.net/) 5.
@@ -19,7 +20,10 @@ and awkward to chart ad hoc. This app reads that shape directly and lets you pul
 combination of measures onto one time axis.
 
 Everything it knows about the format is derived from the file itself, so it works on a dump
-from any host without configuration.
+from any host, or on any other CSV, without configuration. The separator, the header, the decimal
+mark and the time column are all worked out on load (see [How a file is read](#how-a-file-is-read)).
+
+![A daily weather CSV charted against its Date column](docs/screenshots/08-any-csv.png)
 
 ## Requirements
 
@@ -31,9 +35,10 @@ from any host without configuration.
 ```bash
 dotnet build SSHRtmLogVisualizer.sln
 dotnet run --project SSHRtmLogVisualizer
+dotnet test SSHRtmLogVisualizer.sln
 ```
 
-Optionally pass a dump path to open it at startup — this also lets you drop a `.csv` onto the
+Optionally pass a file path to open it at startup. This also lets you drop a `.csv` onto the
 built executable:
 
 ```bash
@@ -82,14 +87,26 @@ Notes on the size and the settings behind it:
 
 ## Using it
 
-### 1. Open a dump
+### 1. Open a file
 
-**Open CSV Dump…** picks a file. The header bar then shows the file name, the host it came
-from, and the sample count; the status bar reports how many measures are chartable.
+**Open CSV…** picks a file. The header bar then shows the file name, the row count, and either
+the host the dump came from (for an SSHRTM dump) or how the file is laid out, such as
+"semicolon-separated, decimal comma". The status bar reports how many measures are chartable and
+which column labels the X axis.
+
+To try it on something other than an SSHRTM dump, open
+[`docs/samples/weather.csv`](docs/samples/weather.csv). It holds ten months of made-up daily
+weather readings.
+
+### Pick the X axis
+
+**X axis** chooses the column whose values label the ticks under the chart. When the file loads,
+it is set to the time column if there is one. You can switch it to any text column (a name or
+ID per row, say) or to plain row numbers.
 
 ### 2. Choose measures
 
-**Choose measures…** opens a multi-select picker over every numeric column in the dump.
+**Choose measures…** opens a multi-select picker over every numeric column in the file.
 Click entries to tick them — no Ctrl needed — Shift+click for a run, Ctrl+A for everything
 currently shown. The filter box at the top narrows a long list; a typical dump offers well
 over two hundred measures.
@@ -102,9 +119,9 @@ the filter clears the current ticks, so a tick never refers to a measure you can
 
 ### 3. Or use a quick-add preset
 
-The **Quick add** buttons pull in a whole related group in one click. Each button shows how
-many measures it will add, and presets are built from the dump you opened — one that matches
-nothing simply doesn't appear.
+The **Quick add** buttons pull in a whole related group of SSHRTM measures in one click. Each
+button shows how many measures it will add, and presets are built from the file you opened. One
+that matches nothing simply doesn't appear, so for other CSVs the section is hidden.
 
 | Preset | Matches |
 | --- | --- |
@@ -128,8 +145,9 @@ too, so what's on screen always matches what's in the list.
 ### 5. Visualize
 
 **DO THE VISUALIZE** draws the chart. The first data row sits at the left edge, the last at
-the right, and both axes auto-scale to the data. X ticks are labelled with the timestamp of
-the row they fall on.
+the right, and both axes auto-scale to the data. X ticks are labelled from the X axis column.
+Times are shortened to what tells the rows apart: the time of day within one day, the date and
+time across several days, and the date alone for daily data.
 
 On the chart: scroll to zoom, drag to pan, right-click for ScottPlot's own menu.
 
@@ -173,7 +191,7 @@ Gruvbox Dark, High Contrast.
 ## Exporting the chart
 
 - **Save Image…** writes the chart to a PNG, JPEG or BMP through a save dialog. The file name
-  is suggested from the dump's own name, and the correct extension is appended if the dialog
+  is suggested from the file's own name, and the correct extension is appended if the dialog
   doesn't add one.
 - **Copy to Clipboard** puts the chart on the clipboard as a PNG, ready to paste into a ticket
   or an email.
@@ -182,23 +200,38 @@ Both export at the on-screen size (with a 1000 × 560 floor), so the image match
 
 ---
 
-## How a dump is read
+## How a file is read
 
-Row 1 holds the measure names. The **last** column is the sample timestamp — it is never
-offered as a measure, and is used instead to label the X axis. `yyyyMMdd-HHmmss` is the
-expected layout, with several other common forms accepted as a fallback.
+The layout is worked out from the file itself:
 
-Columns whose samples are text rather than numbers cannot be plotted, so they are left out of
-the picker: `hostname`, the `fs_*_type` filesystem types, the `procN_command` process names.
-The status bar reports how many were skipped. Blank or `n/a` samples become gaps in the line
-rather than zeroes.
+- **Separator.** Comma, semicolon, tab or pipe, whichever splits the first lines most
+  consistently. An Excel `sep=;` first line names it outright, and `#` comment lines at the top
+  are skipped.
+- **Header.** Row 1 names the columns when it has text where row 2 has numbers or times. A file
+  without a header gets columns named `Column 1`, `Column 2` and so on.
+- **Decimal mark.** In a file not separated by commas, numbers written `12,5` and `1.234,50` are
+  read as decimal commas.
+- **Numbers.** Thousands separators, a trailing `%`, and a leading `$`, `€`, `£` or `¥` are
+  allowed (`1,234.5`, `45%`, `$12.50`).
+- **Time column.** A column holds times when at least 80 % of its filled-in cells read as dates
+  or times. SSHRTM's `yyyyMMdd-HHmmss`, ISO 8601 (with or without an offset), `yyyy/MM/dd`,
+  `dd.MM.yyyy` and `MM/dd/yyyy` all count. So do Unix timestamps, in seconds or milliseconds,
+  in a column named like a time (`time`, `ts`, `epoch_time`). When there are several, the X axis
+  starts on one named like a time (`Date`, `timestamp`), then the last column (SSHRTM's layout),
+  then the first. Plain numbers are never read as times.
+- **Measures.** A column is chartable when at least 90 % of its filled-in cells are numbers. A
+  stray `ERROR` in a column of readings becomes a gap. Columns that are mostly text (`hostname`,
+  the `fs_*_type` filesystem types, the `procN_command` process names) can't be charted, but can
+  label the X axis. The status bar reports how many were skipped. Blank, `-`, `n/a` and `null`
+  samples become gaps in the line, never zeroes.
 
-Values are parsed with the invariant culture — a dot decimal separator, matching what SSHRTM
-writes — so the app reads a dump identically regardless of the machine's regional settings.
-The CSV parser handles quoted fields, including embedded commas, quotes and newlines.
+Numbers and times are always read the same way, whatever the machine's regional settings: the
+decimal mark comes from the file, not from Windows or macOS. The CSV parser handles quoted
+fields, including embedded separators, quotes and newlines. Rows shorter than the rest are
+padded with gaps.
 
-The dump is opened with `FileShare.ReadWrite`, so you can chart a file that SSHRTM is still
-appending to.
+The file is opened with `FileShare.ReadWrite`, so you can chart a file that SSHRTM, or anything
+else, is still appending to.
 
 ---
 
@@ -207,16 +240,19 @@ appending to.
 | Path | Purpose |
 | --- | --- |
 | `Models/MetricColumn.cs` | One numeric measure: name, per-row values, min/max |
-| `Models/RtmLogFile.cs` | A parsed dump: timestamps plus chartable measures |
+| `Models/LabelColumn.cs` | A column that can label the X axis: times, text, or row numbers |
+| `Models/RtmLogFile.cs` | A parsed file: measures, label columns, the time column and the layout |
 | `Models/MetricPreset.cs` | A quick-add group resolved against the loaded dump |
 | `Models/AppTheme.cs` | Theme definition — window palette and chart palette |
-| `Services/RtmCsvReader.cs` | CSV parsing, timestamp parsing, numeric-column detection |
+| `Services/RtmCsvReader.cs` | Layout detection, CSV parsing, time and numeric-column detection |
 | `Services/ChartRenderer.cs` | Builds the ScottPlot line chart |
 | `Services/ChartExporter.cs` | Save-to-file and copy-to-clipboard |
 | `Services/ThemeManager.cs` | Theme catalogue and application |
 | `ViewModels/MainWindowViewModel.cs` | Picker state, visualize list, edit commands |
 | `MainWindow.axaml(.cs)` | Window layout, dialogs, chart hosting |
 | `Properties/PublishProfiles/` | Single-file publish profiles per runtime |
+| `tests/SSHRtmLogVisualizer.Tests` | xUnit tests: the reader on many CSV shapes, the view model, and the window (headless) |
+| `docs/samples/weather.csv` | A made-up daily weather file for trying the app on a non-SSHRTM CSV |
 
 ## Dependencies
 
@@ -229,6 +265,6 @@ appending to.
 - Every series shares one Y axis; there is no secondary axis. Normalize is the answer for
   mixed magnitudes.
 - The X axis is the row index, not elapsed time. Rows are evenly spaced even if the sampling
-  interval varies — the tick labels still show each row's real timestamp.
+  interval varies. The tick labels still show each row's real time.
 - Series colours cycle through a 20-colour palette, so charting more than 20 measures at once
   will repeat colours.

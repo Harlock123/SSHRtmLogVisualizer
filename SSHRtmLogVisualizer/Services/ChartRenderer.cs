@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using ScottPlot;
 using ScottPlot.TickGenerators;
@@ -16,6 +17,7 @@ public static class ChartRenderer
     public static void Render(
         Plot plot,
         RtmLogFile? file,
+        LabelColumn? xAxis,
         IReadOnlyList<MetricColumn> metrics,
         bool normalize,
         ChartPalette palette)
@@ -60,19 +62,23 @@ public static class ChartRenderer
         ScottPlot.Panels.LegendPanel legend = plot.ShowLegend(Edge.Right);
         legend.MaximumSize = normalize ? 560 : 320;
 
-        bool multiDay = file.SpansMultipleDays;
-        plot.Axes.Bottom.Label.Text = $"Sample # (row 1 → row {file.RowCount:N0})";
+        LabelColumn labels = xAxis ?? LabelColumn.RowNumbers(file.RowCount);
+        bool multiDay = labels.SpansMultipleDays;
+        bool timeOfDay = labels.HasTimeOfDay;
+        plot.Axes.Bottom.Label.Text = labels.IsRowNumbers
+            ? $"Row (1 → {file.RowCount:N0})"
+            : $"{labels.Name}  (row 1 → row {file.RowCount:N0})";
         plot.Axes.Bottom.TickGenerator = new NumericAutomatic
         {
             IntegerTicksOnly = true,
-            LabelFormatter = value => FormatRowTick(file, value, multiDay),
+            LabelFormatter = value => FormatRowTick(labels, value, multiDay, timeOfDay),
         };
 
         plot.Axes.Left.Label.Text = normalize
             ? "Normalized (0–100 % of each measure's own range)"
             : "Value";
 
-        plot.Title(BuildTitle(file, metrics.Count));
+        plot.Title(BuildTitle(file, labels, metrics.Count));
 
         plot.Axes.AutoScale();
         plot.Axes.SetLimitsX(0, Math.Max(1, file.RowCount - 1));
@@ -81,7 +87,7 @@ public static class ChartRenderer
     private static void RenderPlaceholder(Plot plot, RtmLogFile? file)
     {
         plot.Title(file is null
-            ? "Click \"Open CSV Dump…\" to load an SSHRTM log"
+            ? "Click \"Open CSV…\" to load an SSHRTM dump or any other CSV"
             : "Add measures to the visualize list, then click DO THE VISUALIZE");
         plot.Axes.Bottom.Label.Text = string.Empty;
         plot.Axes.Left.Label.Text = string.Empty;
@@ -145,44 +151,55 @@ public static class ChartRenderer
         return scaled;
     }
 
-    /// <summary>Labels an X tick with the timestamp of the row it sits on.</summary>
-    private static string FormatRowTick(RtmLogFile file, double value, bool multiDay)
+    /// <summary>
+    /// Labels an X tick with the row's value in the label column. Times are shortened to what
+    /// tells the rows apart: the time of day within one day, the date and time across days, and
+    /// the date alone for daily data.
+    /// </summary>
+    internal static string FormatRowTick(LabelColumn labels, double value, bool multiDay, bool timeOfDay)
     {
         int index = (int)Math.Round(value);
-        if (index < 0 || index >= file.RowCount)
+        if (index < 0 || index >= labels.Labels.Count)
         {
             return string.Empty;
         }
 
-        DateTime? stamp = file.Timestamps[index];
+        DateTime? stamp = labels.Timestamps[index];
         if (stamp is null)
         {
-            // Fall back to the raw text when the dump used a timestamp format we don't parse.
-            return file.TimestampLabels[index];
+            // Text columns, row numbers, and times in a form we don't parse show as written.
+            return labels.Labels[index];
         }
 
-        return multiDay
-            ? stamp.Value.ToString("MM-dd HH:mm:ss")
-            : stamp.Value.ToString("HH:mm:ss");
+        return (timeOfDay, multiDay) switch
+        {
+            (false, _) => stamp.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+            (true, true) => stamp.Value.ToString("MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+            (true, false) => stamp.Value.ToString("HH:mm:ss", CultureInfo.InvariantCulture),
+        };
     }
 
-    private static string BuildTitle(RtmLogFile file, int seriesCount)
+    /// <summary>The host (for an SSHRTM dump) or file name, the measure count, and the time span when there is one.</summary>
+    internal static string BuildTitle(RtmLogFile file, LabelColumn labels, int seriesCount)
     {
-        string host = string.IsNullOrWhiteSpace(file.HostName) ? "SSHRTM dump" : file.HostName!;
-        string span = DescribeSpan(file);
+        string source = !string.IsNullOrWhiteSpace(file.HostName)
+            ? file.HostName!
+            : file.FilePath.Length > 0 ? System.IO.Path.GetFileName(file.FilePath) : "CSV";
+        string span = DescribeSpan(labels);
         string measures = seriesCount == 1 ? "1 measure" : $"{seriesCount} measures";
-        return span.Length == 0 ? $"{host} — {measures}" : $"{host} — {measures} — {span}";
+        return span.Length == 0 ? $"{source} — {measures}" : $"{source} — {measures} — {span}";
     }
 
-    private static string DescribeSpan(RtmLogFile file)
+    private static string DescribeSpan(LabelColumn labels)
     {
-        DateTime? first = file.Timestamps.FirstOrDefault(t => t is not null);
-        DateTime? last = file.Timestamps.LastOrDefault(t => t is not null);
+        DateTime? first = labels.Timestamps.FirstOrDefault(t => t is not null);
+        DateTime? last = labels.Timestamps.LastOrDefault(t => t is not null);
         if (first is null || last is null)
         {
             return string.Empty;
         }
 
-        return $"{first.Value:yyyy-MM-dd HH:mm:ss} → {last.Value:yyyy-MM-dd HH:mm:ss}";
+        string format = labels.HasTimeOfDay ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd";
+        return $"{first.Value.ToString(format, CultureInfo.InvariantCulture)} → {last.Value.ToString(format, CultureInfo.InvariantCulture)}";
     }
 }

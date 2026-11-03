@@ -16,8 +16,9 @@ namespace SSHRtmLogVisualizer.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     /// <summary>
-    /// Quick-add groups offered for any dump, as (button label, measure-name pattern).
-    /// A preset only reaches the UI when the loaded dump has at least one matching measure.
+    /// Quick-add groups for SSHRTM's measure names, as (button label, measure-name pattern).
+    /// A preset only reaches the UI when the loaded file has at least one matching measure, so
+    /// other CSVs simply show none.
     /// </summary>
     private static readonly (string Name, string Pattern)[] PresetDefinitions =
     {
@@ -31,7 +32,7 @@ public partial class MainWindowViewModel : ObservableObject
         ("Top proc CPU %", @"^proc\d+_cpu_pct$"),
     };
 
-    /// <summary>Every numeric measure in the loaded dump, before the filter box is applied.</summary>
+    /// <summary>Every numeric measure in the loaded file, before the filter box is applied.</summary>
     private readonly List<MetricColumn> _allMetrics = new();
 
     public MainWindowViewModel()
@@ -46,8 +47,13 @@ public partial class MainWindowViewModel : ObservableObject
     /// <summary>Themes offered by the dropdown in the window's top-right corner.</summary>
     public IReadOnlyList<AppTheme> Themes => ThemeManager.Themes;
 
-    /// <summary>One-click measure groups for the loaded dump; empty until a dump is open.</summary>
+    /// <summary>One-click measure groups for the loaded file (SSHRTM's measure names); empty when none match.</summary>
     public ObservableCollection<MetricPreset> Presets { get; } = new();
+
+    /// <summary>
+    /// What can label the X axis: row numbers, then the file's time columns, then its text columns.
+    /// </summary>
+    public ObservableCollection<LabelColumn> XAxisOptions { get; } = new();
 
     /// <summary>Measures offered by the dropdown (all of them, or those matching the filter).</summary>
     public ObservableCollection<MetricColumn> AvailableMetrics { get; } = new();
@@ -64,8 +70,14 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private RtmLogFile? _logFile;
 
+    /// <summary>The column whose values label the X axis ticks.</summary>
     [ObservableProperty]
-    private string _loadedFileDescription = "No dump loaded — click \"Open CSV Dump…\" to pick one.";
+    private LabelColumn? _selectedXAxis;
+
+    public const string NothingLoaded = "No file loaded. Click \"Open CSV…\" to pick an SSHRTM dump or any other CSV.";
+
+    [ObservableProperty]
+    private string _loadedFileDescription = NothingLoaded;
 
     [ObservableProperty]
     private string _statusText = "Ready.";
@@ -94,7 +106,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsFileLoaded => LogFile is not null;
 
-    /// <summary>Hides the quick-add section entirely when the dump matches no preset.</summary>
+    /// <summary>Hides the quick-add section entirely when the file matches no preset.</summary>
     public bool HasPresets => Presets.Count > 0;
 
     /// <summary>Caption on the dropdown button itself.</summary>
@@ -110,7 +122,7 @@ public partial class MainWindowViewModel : ObservableObject
         int n => $"{n} measures selected",
     };
 
-    /// <summary>Loads a dump and resets the picker and visualize list to match it.</summary>
+    /// <summary>Loads a CSV file and resets the picker, X axis and visualize list to match it.</summary>
     public void LoadFile(string filePath)
     {
         RtmLogFile file = RtmCsvReader.Read(filePath);
@@ -125,12 +137,35 @@ public partial class MainWindowViewModel : ObservableObject
         BuildPresets();
         OnPropertyChanged(nameof(MeasurePickerCaption));
 
-        string host = string.IsNullOrWhiteSpace(file.HostName) ? "unknown host" : file.HostName!;
-        LoadedFileDescription = $"{Path.GetFileName(filePath)}  —  {host}  —  {file.RowCount:N0} samples";
-        StatusText = file.SkippedColumnCount > 0
-            ? $"Loaded {file.Metrics.Count:N0} chartable measures ({file.SkippedColumnCount:N0} text columns skipped)."
-            : $"Loaded {file.Metrics.Count:N0} chartable measures.";
+        XAxisOptions.Clear();
+        XAxisOptions.Add(LabelColumn.RowNumbers(file.RowCount));
+        foreach (LabelColumn column in file.LabelColumns)
+        {
+            XAxisOptions.Add(column);
+        }
+
+        SelectedXAxis = file.TimeColumn ?? XAxisOptions[0];
+
+        // An SSHRTM dump names its host; any other file is described by its layout.
+        string source = string.IsNullOrWhiteSpace(file.HostName) ? file.Format.Description : file.HostName!;
+        LoadedFileDescription = $"{Path.GetFileName(filePath)}  —  {source}  —  {file.RowCount:N0} rows";
+
+        string measures = file.Metrics.Count == 1 ? "1 chartable measure" : $"{file.Metrics.Count:N0} chartable measures";
+        string skipped = file.SkippedColumnCount switch
+        {
+            0 => string.Empty,
+            1 => " (1 text column skipped)",
+            int n => $" ({n:N0} text columns skipped)",
+        };
+        string axis = file.TimeColumn is { } time
+            ? $"X axis: {time.Name}."
+            : "No time column found, so the X axis shows row numbers; pick a column to label it instead.";
+        StatusText = file.Metrics.Count == 0
+            ? $"Loaded {file.RowCount:N0} rows, but no column holds numbers, so there is nothing to chart."
+            : $"Loaded {measures}{skipped}. {axis}";
     }
+
+    partial void OnSelectedXAxisChanged(LabelColumn? value) => ChartInvalidated?.Invoke(this, EventArgs.Empty);
 
     partial void OnMetricFilterChanged(string value) => ApplyFilter();
 
@@ -153,7 +188,7 @@ public partial class MainWindowViewModel : ObservableObject
         }
     }
 
-    /// <summary>Rebuilds the quick-add buttons for the dump just loaded, dropping any with no matches.</summary>
+    /// <summary>Rebuilds the quick-add buttons for the file just loaded, dropping any with no matches.</summary>
     private void BuildPresets()
     {
         Presets.Clear();

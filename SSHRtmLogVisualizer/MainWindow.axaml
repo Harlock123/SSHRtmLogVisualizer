@@ -45,7 +45,7 @@
                     Click="OnOpenFileClick"
                     Padding="16,8"
                     FontWeight="SemiBold"
-                    Content="Open CSV Dump…" />
+                    Content="Open CSV…" />
             <TextBlock Grid.Column="1"
                        Margin="14,0,14,0"
                        VerticalAlignment="Center"
@@ -78,7 +78,7 @@
                 Padding="10"
                 Margin="0,0,0,10"
                 IsEnabled="{Binding IsFileLoaded}">
-            <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto">
                 <TextBlock Grid.Column="0"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0"
@@ -133,6 +133,25 @@
                         </Flyout>
                     </DropDownButton.Flyout>
                 </DropDownButton>
+
+                <TextBlock Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Margin="16,0,8,0"
+                           Text="X axis:" />
+                <ComboBox Grid.Column="3"
+                          Name="XAxisChoice"
+                          MinWidth="220"
+                          MaxWidth="360"
+                          VerticalAlignment="Center"
+                          ItemsSource="{Binding XAxisOptions}"
+                          SelectedItem="{Binding SelectedXAxis, Mode=TwoWay}"
+                          ToolTip.Tip="The column whose values label the ticks under the chart. A time column is picked when the file has one.">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate x:DataType="models:LabelColumn">
+                            <TextBlock Text="{Binding Caption}" TextTrimming="CharacterEllipsis" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
             </Grid>
         </Border>
 

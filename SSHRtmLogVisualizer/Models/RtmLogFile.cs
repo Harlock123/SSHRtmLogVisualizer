@@ -1,72 +1,78 @@
-using System;
 using System.Collections.Generic;
 
 namespace SSHRtmLogVisualizer.Models;
 
 /// <summary>
-/// A parsed SSHRTM CSV dump: the sample timestamps plus every chartable (numeric) measure.
+/// A parsed CSV file: every chartable (numeric) column, the columns that can label the X axis,
+/// and how the file was laid out. An SSHRTM dump is one of these with a timestamp in the last
+/// column and a hostname column; any other CSV reads the same way.
 /// </summary>
 public sealed class RtmLogFile
 {
     public RtmLogFile(
         string filePath,
         string? hostName,
-        IReadOnlyList<string> timestampLabels,
-        IReadOnlyList<DateTime?> timestamps,
+        int rowCount,
         IReadOnlyList<MetricColumn> metrics,
-        int skippedColumnCount)
+        IReadOnlyList<LabelColumn> labelColumns,
+        LabelColumn? timeColumn,
+        int skippedColumnCount,
+        CsvFormat format)
     {
         FilePath = filePath;
         HostName = hostName;
-        TimestampLabels = timestampLabels;
-        Timestamps = timestamps;
+        RowCount = rowCount;
         Metrics = metrics;
+        LabelColumns = labelColumns;
+        TimeColumn = timeColumn;
         SkippedColumnCount = skippedColumnCount;
+        Format = format;
     }
 
     public string FilePath { get; }
 
-    /// <summary>Value of the <c>hostname</c> column on the first row, when the dump has one.</summary>
+    /// <summary>Value of the <c>hostname</c> column on the first row, when the file has one (SSHRTM dumps do).</summary>
     public string? HostName { get; }
 
-    /// <summary>Raw text of the trailing timestamp column, one entry per row.</summary>
-    public IReadOnlyList<string> TimestampLabels { get; }
+    public int RowCount { get; }
 
-    /// <summary>Parsed timestamps; null where the raw text did not match a known format.</summary>
-    public IReadOnlyList<DateTime?> Timestamps { get; }
-
-    /// <summary>Numeric measures available for charting. The timestamp column is not included.</summary>
+    /// <summary>Numeric columns available for charting. Time columns are not included.</summary>
     public IReadOnlyList<MetricColumn> Metrics { get; }
 
-    /// <summary>Count of non-timestamp columns dropped because they hold text, not numbers.</summary>
+    /// <summary>The columns that can label the X axis: time columns first, then the text columns, in file order.</summary>
+    public IReadOnlyList<LabelColumn> LabelColumns { get; }
+
+    /// <summary>The column picked to label the X axis when the file loads, or null to use row numbers.</summary>
+    public LabelColumn? TimeColumn { get; }
+
+    /// <summary>Count of columns that hold text rather than numbers, and so can't be charted.</summary>
     public int SkippedColumnCount { get; }
 
-    public int RowCount => TimestampLabels.Count;
+    public CsvFormat Format { get; }
+}
 
-    /// <summary>True when the dump's samples do not all fall on the same calendar day.</summary>
-    public bool SpansMultipleDays
+/// <summary>How a CSV file was written: its field separator, whether row 1 is a header, and its decimal mark.</summary>
+public sealed record CsvFormat(char Delimiter, bool HasHeader, bool DecimalComma)
+{
+    public static readonly CsvFormat Standard = new(',', true, false);
+
+    /// <summary>"semicolon-separated, decimal comma" and so on, for the status bar.</summary>
+    public string Description
     {
         get
         {
-            DateTime? first = null;
-            foreach (DateTime? t in Timestamps)
+            string separator = Delimiter switch
             {
-                if (t is null)
-                {
-                    continue;
-                }
-
-                if (first is null)
-                {
-                    first = t.Value.Date;
-                }
-                else if (t.Value.Date != first.Value)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+                ',' => "comma-separated",
+                ';' => "semicolon-separated",
+                '\t' => "tab-separated",
+                '|' => "pipe-separated",
+                _ => $"'{Delimiter}'-separated",
+            };
+            var parts = new List<string> { separator };
+            if (DecimalComma) parts.Add("decimal comma");
+            if (!HasHeader) parts.Add("no header row");
+            return string.Join(", ", parts);
         }
     }
 }
