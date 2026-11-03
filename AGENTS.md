@@ -82,4 +82,7 @@ The app is under `SSHRtmLogVisualizer/`; tests are under `tests/`.
 
 ## CI and releases
 
-There is no CI workflow. Builds are published by hand with the publish profiles.
+`.github/workflows/build.yml` runs on every push: it builds, runs the tests, and publishes single-file,
+self-contained builds for eight platforms (Windows, macOS and Linux, Intel/AMD and ARM). Pushes to `main` refresh
+the rolling `latest` pre-release; a `v*` tag makes a proper release. The publish profiles still work for a build
+by hand.

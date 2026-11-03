@@ -25,6 +25,13 @@ mark and the time column are all worked out on load (see [How a file is read](#h
 
 ![A daily weather CSV charted against its Date column](docs/screenshots/08-any-csv.png)
 
+## Download
+
+Builds for Windows, macOS and Linux (Intel/AMD and ARM) are on the
+[releases page](https://github.com/Harlock123/SSHRtmLogVisualizer/releases). Each is a single
+self-contained program: unzip or untar it and run `SSHRtmLogVisualizer` (`SSHRtmLogVisualizer.exe`
+on Windows). Nothing else needs installing.
+
 ## Requirements
 
 - .NET 9 SDK (or newer) to build; the built app needs only the .NET 9 runtime
