@@ -58,8 +58,12 @@ desktop.ini
 # the app with, say — force it past this rule:
 #
 #     git add -f samples/example-dump.csv
+#
+# docs/samples/ is the exception: it holds made-up files (no real hosts) that
+# the tests and the README use.
 # ---------------------------------------------------------------------------
 *.csv
+!docs/samples/*.csv
 
 # ---------------------------------------------------------------------------
 # Charts exported from the app. The README screenshots under

@@ -31,12 +31,16 @@ public class WindowTests
     [AvaloniaFact]
     public void Charts_any_csv_against_its_date_column()
     {
+        string sample = Path.Combine(AppContext.BaseDirectory, "Samples", "weather.csv");
+        Assert.True(File.Exists(sample), $"{sample} is missing: is docs/samples/weather.csv committed?");
+
         var w = new MainWindow { Width = 1280, Height = 800 };
         w.Show();
-        w.TryLoadFile(Path.Combine(AppContext.BaseDirectory, "Samples", "weather.csv"));
+        w.TryLoadFile(sample);
         Pump();
 
         var vm = (MainWindowViewModel)w.DataContext!;
+        Assert.NotNull(vm.LogFile);
         Assert.Equal("Date", vm.SelectedXAxis!.Name);
         Assert.Equal(["High (°C)", "Low (°C)", "Rain (mm)", "Humidity"], vm.AvailableMetrics.Select(m => m.Name));
         Assert.Equal("Date  (time)", w.FindControl<ComboBox>("XAxisChoice")!.SelectedItem!.ToString());
