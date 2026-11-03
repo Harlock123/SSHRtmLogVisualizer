@@ -101,9 +101,10 @@ the host the dump came from (for an SSHRTM dump) or how the file is laid out, su
 "semicolon-separated, decimal comma". The status bar reports how many measures are chartable and
 which column labels the X axis.
 
-To try it on something other than an SSHRTM dump, open
-[`docs/samples/weather.csv`](docs/samples/weather.csv). It holds ten months of made-up daily
-weather readings.
+Two made-up files in [`docs/samples`](docs/samples) are there to try it with:
+[`web01-20260827-150110.csv`](docs/samples/web01-20260827-150110.csv), an SSHRTM dump of 258
+columns from a pretend host (the screenshots here come from it), and
+[`weather.csv`](docs/samples/weather.csv), ten months of daily weather readings.
 
 ### Pick the X axis
 
@@ -259,7 +260,7 @@ else, is still appending to.
 | `MainWindow.axaml(.cs)` | Window layout, dialogs, chart hosting |
 | `Properties/PublishProfiles/` | Single-file publish profiles per runtime |
 | `tests/SSHRtmLogVisualizer.Tests` | xUnit tests: the reader on many CSV shapes, the view model, and the window (headless) |
-| `docs/samples/weather.csv` | A made-up daily weather file for trying the app on a non-SSHRTM CSV |
+| `docs/samples/` | Made-up files to try: an SSHRTM dump and a daily weather CSV |
 
 ## Dependencies
 

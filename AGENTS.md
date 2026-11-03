@@ -47,11 +47,13 @@ The app is under `SSHRtmLogVisualizer/`; tests are under `tests/`.
 - `Services/ThemeManager.cs`: the nine themes and how they are applied to the window and the chart.
 - `MainWindow.axaml(.cs)`: layout, file dialogs and chart hosting. `TryLoadFile` is the single entry for loading.
 - `Properties/PublishProfiles/`: `win-x64` and `linux-x64` self-contained single-file profiles.
-- `docs/`: the README's screenshots, a Word user guide, and `samples/weather.csv` (made-up daily data).
+- `docs/`: the README's screenshots, a Word user guide, and `samples/`: made-up files only (`weather.csv`, daily data;
+  `web01-20260827-150110.csv`, an SSHRTM dump for a pretend host). `.gitignore` keeps every other `.csv` out.
 - `tests/SSHRtmLogVisualizer.Tests/`: xUnit v3.
   - `CsvReaderTests`: the reader on many CSV shapes.
   - `ViewModelTests`: loading into the view model, plus tick and title text.
   - `WindowTests`: the window with the weather sample, on Avalonia.Headless.
+  - `ScreenshotTests`: the README's SSHRTM pictures, from the made-up dump, checking what each shows.
 
 ## Rules that keep it working
 
@@ -77,8 +79,9 @@ The app is under `SSHRtmLogVisualizer/`; tests are under `tests/`.
 - Run `dotnet test`. A new CSV shape the reader should handle gets a test in `CsvReaderTests`.
 - Check changes by running the app on a real dump, and on `docs/samples/weather.csv`.
 - If the UI changes, refresh the screenshots in `docs/screenshots/` and update `README.md` to match.
-  `08-any-csv.png` comes from `WindowTests` with `CSVVIZ_SHOTS` set. The SSHRTM pictures (01 to 07) were taken by
-  hand from a real dump.
+  All of them come from the tests: set `CSVVIZ_SHOTS` to a folder, run `dotnet test`, and copy the PNGs over.
+  `ScreenshotTests` takes 01 to 07 from the made-up dump `docs/samples/web01-20260827-150110.csv`, with popups drawn
+  in the window's overlay layer so they're in the picture; `WindowTests` takes 08 from `docs/samples/weather.csv`.
 
 ## CI and releases
 
