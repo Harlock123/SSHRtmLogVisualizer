@@ -7,7 +7,7 @@ the presets, themes and publishing; this file covers how the code is put togethe
 
 A desktop app that charts CSV files: SSHRTM metric dumps (one row per sample, one column per metric, a timestamp in
 the last column), and any other CSV. The reader works out the separator, header, decimal mark and time column from
-the file. It is C# on .NET 9 with Avalonia 12.1.1, ScottPlot 5 for the chart and CommunityToolkit.Mvvm for the
+the file. It is C# on .NET 10 with Avalonia 12.1.1, ScottPlot 5 for the chart and CommunityToolkit.Mvvm for the
 view model, and runs on Windows, macOS and Linux.
 
 ## Commands

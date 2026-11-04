@@ -5,7 +5,7 @@ for SSHRTM metric dumps, and it reads any other CSV too: weather logs, sensor re
 spreadsheets, server stats. Point it at a file, pick the columns you care about, and plot them
 against the file's own timeline.
 
-Built with [Avalonia](https://avaloniaui.net/) 12 on .NET 9, charting with
+Built with [Avalonia](https://avaloniaui.net/) 12 on .NET 10, charting with
 [ScottPlot](https://scottplot.net/) 5.
 
 ![The app with all 17 CPU utilisation measures charted](docs/screenshots/01-overview.png)
@@ -34,7 +34,7 @@ on Windows). Nothing else needs installing.
 
 ## Requirements
 
-- .NET 9 SDK (or newer) to build; the built app needs only the .NET 9 runtime
+- .NET 10 SDK (or newer) to build; the built app needs only the .NET 10 runtime
 - Windows, macOS or Linux
 
 ## Build and run
@@ -87,7 +87,7 @@ Notes on the size and the settings behind it:
 - Trimming is deliberately **off**. Avalonia resolves controls and XAML through reflection, and
   a trimmed build risks failing at runtime in ways a successful build won't reveal. Turn it on
   in the profile only if you are willing to retest the whole UI.
-- If every target machine already has the .NET 9 runtime, a framework-dependent single file is
+- If every target machine already has the .NET 10 runtime, a framework-dependent single file is
   far smaller — add `--no-self-contained` to the command above.
 
 ---
