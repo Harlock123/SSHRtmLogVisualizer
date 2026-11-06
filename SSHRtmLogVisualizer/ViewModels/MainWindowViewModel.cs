@@ -55,6 +55,22 @@ public partial class MainWindowViewModel : ObservableObject
     /// </summary>
     public ObservableCollection<LabelColumn> XAxisOptions { get; } = new();
 
+    /// <summary>The servers of a combined log, each a check box; empty for any other file.</summary>
+    public ObservableCollection<ServerOption> ServerOptions { get; } = new();
+
+    /// <summary>
+    /// The measures a combined log has for its servers ("cpu_overall_pct"…), for "Compare across servers":
+    /// pick one and every ticked server's copy of it goes on the visualize list.
+    /// </summary>
+    public ObservableCollection<string> CompareMeasures { get; } = new();
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(CompareAcrossServersCommand))]
+    private string? _selectedCompareMeasure;
+
+    /// <summary>Shows the server row for an SSHRTM combined log.</summary>
+    public bool IsCombined => LogFile?.IsCombined == true;
+
     /// <summary>Measures offered by the dropdown (all of them, or those matching the filter).</summary>
     public ObservableCollection<MetricColumn> AvailableMetrics { get; } = new();
 
@@ -106,6 +122,12 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsFileLoaded => LogFile is not null;
 
+    partial void OnLogFileChanged(RtmLogFile? value)
+    {
+        OnPropertyChanged(nameof(IsFileLoaded));
+        OnPropertyChanged(nameof(IsCombined));
+    }
+
     /// <summary>Hides the quick-add section entirely when the file matches no preset.</summary>
     public bool HasPresets => Presets.Count > 0;
 
@@ -118,7 +140,7 @@ public partial class MainWindowViewModel : ObservableObject
     public string PendingSelectionSummary => MetricSelection.Count switch
     {
         0 => "Nothing selected — click measures to tick them",
-        1 => MetricSelection.SelectedItem?.Name ?? "1 measure selected",
+        1 => MetricSelection.SelectedItem?.DisplayName ?? "1 measure selected",
         int n => $"{n} measures selected",
     };
 
@@ -132,6 +154,21 @@ public partial class MainWindowViewModel : ObservableObject
         _allMetrics.AddRange(file.Metrics);
 
         SelectedMetrics.Clear();
+        ServerOptions.Clear();
+        foreach (string server in file.Servers)
+        {
+            ServerOptions.Add(new ServerOption(server, OnServerFilterChanged));
+        }
+
+        CompareMeasures.Clear();
+        foreach (string measure in file.Metrics.Where(m => m.Server is not null).Select(m => m.Measure).Distinct(StringComparer.Ordinal))
+        {
+            CompareMeasures.Add(measure);
+        }
+
+        SelectedCompareMeasure = CompareMeasures.Contains("cpu_overall_pct") ? "cpu_overall_pct" : CompareMeasures.FirstOrDefault();
+        OnPropertyChanged(nameof(IsCombined));
+
         MetricFilter = string.Empty;
         ApplyFilter();
         BuildPresets();
@@ -146,8 +183,10 @@ public partial class MainWindowViewModel : ObservableObject
 
         SelectedXAxis = file.TimeColumn ?? XAxisOptions[0];
 
-        // An SSHRTM dump names its host; any other file is described by its layout.
-        string source = string.IsNullOrWhiteSpace(file.HostName) ? file.Format.Description : file.HostName!;
+        // An SSHRTM dump names its host, a combined log its servers; any other file is described by its layout.
+        string source = file.IsCombined
+            ? $"combined log: {ChartRenderer.DescribeServers(file.Servers)}"
+            : string.IsNullOrWhiteSpace(file.HostName) ? file.Format.Description : file.HostName!;
         LoadedFileDescription = $"{Path.GetFileName(filePath)}  —  {source}  —  {file.RowCount:N0} rows";
 
         string measures = file.Metrics.Count == 1 ? "1 chartable measure" : $"{file.Metrics.Count:N0} chartable measures";
@@ -160,16 +199,36 @@ public partial class MainWindowViewModel : ObservableObject
         string axis = file.TimeColumn is { } time
             ? $"X axis: {time.Name}."
             : "No time column found, so the X axis shows row numbers; pick a column to label it instead.";
+        string servers = file.IsCombined
+            ? $" across {file.Servers.Count:N0} servers. Tick servers to narrow the measures, or compare one measure across them"
+            : string.Empty;
         StatusText = file.Metrics.Count == 0
             ? $"Loaded {file.RowCount:N0} rows, but no column holds numbers, so there is nothing to chart."
-            : $"Loaded {measures}{skipped}. {axis}";
+            : $"Loaded {measures}{skipped}{servers}. {axis}";
     }
 
     partial void OnSelectedXAxisChanged(LabelColumn? value) => ChartInvalidated?.Invoke(this, EventArgs.Empty);
 
     partial void OnMetricFilterChanged(string value) => ApplyFilter();
 
-    partial void OnLogFileChanged(RtmLogFile? value) => OnPropertyChanged(nameof(IsFileLoaded));
+
+    /// <summary>True when the measure has no server, or its server is ticked.</summary>
+    private bool IsServerShown(MetricColumn metric) =>
+        metric.Server is null || ServerOptions.Any(o => o.IsChecked && o.Name == metric.Server);
+
+    /// <summary>The measures of the ticked servers (every measure, for a file without servers).</summary>
+    private IEnumerable<MetricColumn> ShownMetrics => _allMetrics.Where(IsServerShown);
+
+    private void OnServerFilterChanged()
+    {
+        ApplyFilter();
+        BuildPresets();
+        CompareAcrossServersCommand.NotifyCanExecuteChanged();
+        int shown = ServerOptions.Count(o => o.IsChecked);
+        StatusText = shown == ServerOptions.Count
+            ? "Showing every server's measures."
+            : $"Showing the measures of {shown:N0} of {ServerOptions.Count:N0} servers.";
+    }
 
     private void ApplyFilter()
     {
@@ -178,10 +237,11 @@ public partial class MainWindowViewModel : ObservableObject
         MetricSelection.Clear();
 
         AvailableMetrics.Clear();
-        foreach (MetricColumn metric in _allMetrics)
+        foreach (MetricColumn metric in ShownMetrics)
         {
             if (MetricFilter.Length == 0 ||
-                metric.Name.Contains(MetricFilter, StringComparison.OrdinalIgnoreCase))
+                metric.Name.Contains(MetricFilter, StringComparison.OrdinalIgnoreCase) ||
+                metric.DisplayName.Contains(MetricFilter, StringComparison.OrdinalIgnoreCase))
             {
                 AvailableMetrics.Add(metric);
             }
@@ -196,7 +256,8 @@ public partial class MainWindowViewModel : ObservableObject
         foreach ((string name, string pattern) in PresetDefinitions)
         {
             var regex = new Regex(pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-            List<MetricColumn> matches = _allMetrics.Where(m => regex.IsMatch(m.Name)).ToList();
+            // Match on the measure, so a combined log's "web01::load_1m" counts as "load_1m".
+            List<MetricColumn> matches = ShownMetrics.Where(m => regex.IsMatch(m.Measure)).ToList();
 
             if (matches.Count > 0)
             {
@@ -236,6 +297,36 @@ public partial class MainWindowViewModel : ObservableObject
                 ? $"\"{preset.Name}\" added {added:N0} measures."
                 : $"\"{preset.Name}\" added {added:N0} measures, skipped {duplicates:N0} already in the list.";
     }
+
+    /// <summary>Adds the chosen measure for every ticked server, skipping any already on the list.</summary>
+    [RelayCommand(CanExecute = nameof(CanCompareAcrossServers))]
+    private void CompareAcrossServers()
+    {
+        string measure = SelectedCompareMeasure!;
+        List<MetricColumn> matches = ShownMetrics.Where(m => m.Server is not null && m.Measure == measure).ToList();
+
+        int added = 0;
+        foreach (MetricColumn metric in matches)
+        {
+            if (SelectedMetrics.Contains(metric)) continue;
+            SelectedMetrics.Add(metric);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            SelectedListIndex = SelectedMetrics.Count - 1;
+        }
+
+        StatusText = matches.Count == 0
+            ? $"No ticked server has \"{measure}\"."
+            : added == 0
+                ? $"\"{measure}\" is already on the list for every ticked server."
+                : $"Added \"{measure}\" for {added:N0} {(added == 1 ? "server" : "servers")}.";
+    }
+
+    private bool CanCompareAcrossServers() =>
+        SelectedCompareMeasure is not null && ServerOptions.Any(o => o.IsChecked);
 
     private void OnMetricSelectionChanged(object? sender, SelectionModelSelectionChangedEventArgs<MetricColumn> e)
     {
@@ -295,7 +386,7 @@ public partial class MainWindowViewModel : ObservableObject
             }
 
             SelectedMetrics.Add(metric);
-            lastAdded = metric.Name;
+            lastAdded = metric.DisplayName;
             added++;
         }
 
@@ -329,7 +420,7 @@ public partial class MainWindowViewModel : ObservableObject
     private void RemoveSelected()
     {
         int index = SelectedListIndex;
-        string name = SelectedMetrics[index].Name;
+        string name = SelectedMetrics[index].DisplayName;
         SelectedMetrics.RemoveAt(index);
 
         SelectedListIndex = SelectedMetrics.Count == 0

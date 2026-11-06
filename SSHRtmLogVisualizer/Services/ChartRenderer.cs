@@ -52,8 +52,8 @@ public static class ChartRenderer
             // When normalized the plotted numbers no longer carry units, so the legend
             // reports the real range each series was squashed from.
             series.LegendText = normalize
-                ? $"{metric.Name}  {metric.CompactRange}"
-                : metric.Name;
+                ? $"{metric.DisplayName}  {metric.CompactRange}"
+                : metric.DisplayName;
         }
 
         plot.Legend.IsVisible = true;
@@ -182,13 +182,23 @@ public static class ChartRenderer
     /// <summary>The host (for an SSHRTM dump) or file name, the measure count, and the time span when there is one.</summary>
     internal static string BuildTitle(RtmLogFile file, LabelColumn labels, int seriesCount)
     {
-        string source = !string.IsNullOrWhiteSpace(file.HostName)
+        string source = file.IsCombined
+            ? DescribeServers(file.Servers)
+            : !string.IsNullOrWhiteSpace(file.HostName)
             ? file.HostName!
             : file.FilePath.Length > 0 ? System.IO.Path.GetFileName(file.FilePath) : "CSV";
         string span = DescribeSpan(labels);
         string measures = seriesCount == 1 ? "1 measure" : $"{seriesCount} measures";
         return span.Length == 0 ? $"{source} — {measures}" : $"{source} — {measures} — {span}";
     }
+
+    /// <summary>"web01, db01 and cache01", or "12 servers" when the names would crowd the title.</summary>
+    internal static string DescribeServers(IReadOnlyList<string> servers) => servers.Count switch
+    {
+        1 => servers[0],
+        <= 4 => $"{string.Join(", ", servers.Take(servers.Count - 1))} and {servers[^1]}",
+        _ => $"{servers.Count} servers",
+    };
 
     private static string DescribeSpan(LabelColumn labels)
     {

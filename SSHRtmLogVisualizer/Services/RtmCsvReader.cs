@@ -144,6 +144,13 @@ public static partial class RtmCsvReader
             }
         }
 
+        // An SSHRTM combined log names its columns server::measure; list its servers in column order.
+        List<string> servers = names
+            .Select(n => MetricColumn.SplitServer(n).Server)
+            .OfType<string>()
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
         return new RtmLogFile(
             filePath,
             hostName,
@@ -152,7 +159,8 @@ public static partial class RtmCsvReader
             timeColumns.Select(t => t.Column).Concat(textColumns).ToList(),
             timeColumn,
             textColumns.Count,
-            new CsvFormat(delimiter, hasHeader, decimalComma));
+            new CsvFormat(delimiter, hasHeader, decimalComma),
+            servers);
     }
 
     /// <summary>

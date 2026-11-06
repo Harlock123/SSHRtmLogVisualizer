@@ -14,7 +14,7 @@ using SSHRtmLogVisualizer.ViewModels;
 namespace SSHRtmLogVisualizer.Tests;
 
 /// <summary>
-/// The README's SSHRTM pictures (01 to 07), taken from the made-up dump in docs/samples on Avalonia's headless
+/// The README's SSHRTM pictures (01 to 07, and 09 from a combined log), taken from the made-up dump in docs/samples on Avalonia's headless
 /// platform. Each checks what it shows; set CSVVIZ_SHOTS to a folder to save the pictures too.
 /// </summary>
 public class ScreenshotTests
@@ -157,6 +157,26 @@ public class ScreenshotTests
         Pump();
         Assert.Equal($"Theme set to {theme}.", vm.StatusText);
         Shot(w, name);
+        w.Close();
+    }
+
+    [AvaloniaFact]
+    public void Combined_log_compare_across_servers()
+    {
+        // Opens like the others, but on the made-up combined log of three servers.
+        var (w, vm) = Open();
+        w.TryLoadFile(Path.Combine(AppContext.BaseDirectory, "Samples", "combined-20261106-141500.csv"));
+        Pump();
+        Assert.Equal("combined-20261106-141500.csv  —  combined log: web01, db01 and cache01  —  600 rows",
+            vm.LoadedFileDescription);
+        Assert.True(w.FindControl<ItemsControl>("ServerChoices")!.IsVisible);
+
+        vm.SelectedCompareMeasure = "cpu_overall_pct";
+        w.FindControl<Button>("CompareButton")!.Command!.Execute(null);
+        Visualize(w);
+        Assert.Equal(["web01 · cpu_overall_pct", "db01 · cpu_overall_pct", "cache01 · cpu_overall_pct"],
+            vm.SelectedMetrics.Select(m => m.DisplayName));
+        Shot(w, "09-combined-compare");
         w.Close();
     }
 }

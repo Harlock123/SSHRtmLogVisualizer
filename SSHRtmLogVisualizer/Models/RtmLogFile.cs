@@ -17,8 +17,10 @@ public sealed class RtmLogFile
         IReadOnlyList<LabelColumn> labelColumns,
         LabelColumn? timeColumn,
         int skippedColumnCount,
-        CsvFormat format)
+        CsvFormat format,
+        IReadOnlyList<string>? servers = null)
     {
+        Servers = servers ?? [];
         FilePath = filePath;
         HostName = hostName;
         RowCount = rowCount;
@@ -30,6 +32,15 @@ public sealed class RtmLogFile
     }
 
     public string FilePath { get; }
+
+    /// <summary>
+    /// The servers of an SSHRTM combined log, in column order (its columns are named <c>server::measure</c>);
+    /// empty for any other file.
+    /// </summary>
+    public IReadOnlyList<string> Servers { get; }
+
+    /// <summary>True for an SSHRTM combined log: several servers' measures side by side.</summary>
+    public bool IsCombined => Servers.Count > 0;
 
     /// <summary>Value of the <c>hostname</c> column on the first row, when the file has one (SSHRTM dumps do).</summary>
     public string? HostName { get; }

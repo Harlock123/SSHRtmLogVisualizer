@@ -144,6 +144,27 @@ that matches nothing simply doesn't appear, so for other CSVs the section is hid
 
 Presets **append** rather than replace, so you can stack Memory % on top of All CPU %.
 
+### Combined logs: several servers in one file
+
+SSHRTM can log several servers into one file: mark them in its grid with `Space` and press
+`L`. Each column of such a file is named `server::measure` (`web01::cpu_overall_pct`), with the
+timestamp first. When you open one, the app reads the server names from the columns and adds a
+second row under **Measures**:
+
+- **Servers**: one check box per server. Untick a server and its measures leave the picker and
+  the quick-add presets, so you can work on one server at a time. Presets count only the ticked
+  servers.
+- **Compare**: pick a measure that the servers have, such as `cpu_overall_pct`, `load_1m` or
+  `mem_used_pct`, and press **Add for each server**. That measure goes on the list once for every
+  ticked server, so the servers sit side by side on one chart.
+
+Measures show as `web01 · cpu_overall_pct` in the lists and the legend. The chart title names
+the servers. The filter box matches either the server or the measure. When a server was down,
+SSHRTM left its cells empty, so its line has a gap there; its `server::status` column (`Ok`,
+`Error`, `Connecting`) can label the X axis to show why.
+
+![Three servers' CPU compared from a combined log; db01's outage is a gap](docs/screenshots/09-combined-compare.png)
+
 ### 4. Edit the list
 
 **Move Up** / **Move Down** reorder (which sets the series colour order), **Remove Selected**
@@ -227,6 +248,8 @@ The layout is worked out from the file itself:
   in a column named like a time (`time`, `ts`, `epoch_time`). When there are several, the X axis
   starts on one named like a time (`Date`, `timestamp`), then the last column (SSHRTM's layout),
   then the first. Plain numbers are never read as times.
+- **Servers.** Columns named `server::measure` (an SSHRTM combined log) are split into the server
+  and the measure; see [Combined logs](#combined-logs-several-servers-in-one-file).
 - **Measures.** A column is chartable when at least 90 % of its filled-in cells are numbers. A
   stray `ERROR` in a column of readings becomes a gap. Columns that are mostly text (`hostname`,
   the `fs_*_type` filesystem types, the `procN_command` process names) can't be charted, but can
@@ -251,6 +274,7 @@ else, is still appending to.
 | `Models/LabelColumn.cs` | A column that can label the X axis: times, text, or row numbers |
 | `Models/RtmLogFile.cs` | A parsed file: measures, label columns, the time column and the layout |
 | `Models/MetricPreset.cs` | A quick-add group resolved against the loaded dump |
+| `Models/ServerOption.cs` | A combined log's server, as a check box |
 | `Models/AppTheme.cs` | Theme definition — window palette and chart palette |
 | `Services/RtmCsvReader.cs` | Layout detection, CSV parsing, time and numeric-column detection |
 | `Services/ChartRenderer.cs` | Builds the ScottPlot line chart |
@@ -260,7 +284,7 @@ else, is still appending to.
 | `MainWindow.axaml(.cs)` | Window layout, dialogs, chart hosting |
 | `Properties/PublishProfiles/` | Single-file publish profiles per runtime |
 | `tests/SSHRtmLogVisualizer.Tests` | xUnit tests: the reader on many CSV shapes, the view model, and the window (headless) |
-| `docs/samples/` | Made-up files to try: an SSHRTM dump and a daily weather CSV |
+| `docs/samples/` | Made-up files to try: an SSHRTM dump, a combined log of three servers (and the Python script that makes it), and a daily weather CSV |
 
 ## Dependencies
 

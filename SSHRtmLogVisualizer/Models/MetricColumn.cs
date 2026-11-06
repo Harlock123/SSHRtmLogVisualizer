@@ -11,6 +11,7 @@ public sealed class MetricColumn
     public MetricColumn(string name, int sourceColumnIndex, double[] values)
     {
         Name = name;
+        (Server, Measure) = SplitServer(name);
         SourceColumnIndex = sourceColumnIndex;
         Values = values;
 
@@ -46,6 +47,33 @@ public sealed class MetricColumn
     /// <summary>Column header text, e.g. <c>cpu_overall_pct</c>.</summary>
     public string Name { get; }
 
+    /// <summary>
+    /// The server this measure belongs to in an SSHRTM combined log, whose columns are named
+    /// <c>server::measure</c>; null in any other file.
+    /// </summary>
+    public string? Server { get; }
+
+    /// <summary>The name without its server: <c>cpu_overall_pct</c> for <c>web01::cpu_overall_pct</c>.</summary>
+    public string Measure { get; }
+
+    /// <summary>What the lists and the legend show: "web01 · cpu_overall_pct", or the plain name.</summary>
+    public string DisplayName => Server is null ? Name : $"{Server} · {Measure}";
+
+    /// <summary>The separator SSHRTM's combined logs put between a server's name and its column.</summary>
+    public const string ServerSeparator = "::";
+
+    /// <summary>Splits <c>server::measure</c>; a name without the separator (or with nothing either side) has no server.</summary>
+    public static (string? Server, string Measure) SplitServer(string name)
+    {
+        int at = name.IndexOf(ServerSeparator, StringComparison.Ordinal);
+        if (at <= 0 || at + ServerSeparator.Length >= name.Length)
+        {
+            return (null, name);
+        }
+
+        return (name[..at], name[(at + ServerSeparator.Length)..]);
+    }
+
     /// <summary>Zero-based index of this column in the source CSV.</summary>
     public int SourceColumnIndex { get; }
 
@@ -75,7 +103,7 @@ public sealed class MetricColumn
             ? "no numeric samples"
             : $"min {Format(Minimum)}  ·  max {Format(Maximum)}";
 
-    public override string ToString() => Name;
+    public override string ToString() => DisplayName;
 
     /// <summary>
     /// Formats a value short enough to sit in a legend entry. Byte counts and bit rates run to

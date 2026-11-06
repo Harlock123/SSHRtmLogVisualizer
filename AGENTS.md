@@ -33,14 +33,19 @@ The app is under `SSHRtmLogVisualizer/`; tests are under `tests/`.
   - which columns are times (`TryReadTimeColumn`), numbers (`TryReadNumericColumn`) or text;
   - and the time column for the X axis (`PickTimeColumn`).
 - `Models/`:
-  - `RtmLogFile`: the measures, the label columns, the picked time column, and the `CsvFormat`.
-  - `MetricColumn`: one measure's values and range.
+  - `RtmLogFile`: the measures, the label columns, the picked time column, the `CsvFormat`, and `Servers` (a
+    combined log's servers in column order; empty otherwise, so `IsCombined` is false).
+  - `ServerOption`: a combined log's server as a check box.
+  - `MetricColumn`: one measure's values and range; for a column named `server::measure` (an SSHRTM combined
+    log) also its `Server`, `Measure` and `DisplayName` ("web01 · cpu_overall_pct").
   - `LabelColumn`: a column that can label the X axis (times, text, or `RowNumbers`).
   - `MetricPreset`: a quick-add button.
   - `AppTheme`: window and chart palettes.
 - `ViewModels/MainWindowViewModel.cs`: the picker, filter, visualize list and its commands, the presets, and the X
-  axis choice (`XAxisOptions`, `SelectedXAxis`). `PresetDefinitions` holds each preset as a name and a regex;
-  `BuildPresets` keeps only those that match the file.
+  axis choice (`XAxisOptions`, `SelectedXAxis`). `PresetDefinitions` holds each preset as a name and a regex,
+  matched against each measure's `Measure`; `BuildPresets` keeps only those that match the file. For a combined
+  log, `ServerOptions` filters the picker and presets (`ShownMetrics`), and `CompareAcrossServers` adds
+  `SelectedCompareMeasure` for every ticked server.
 - `Services/ChartRenderer.cs`: builds the ScottPlot line chart, including the 0-100 % normalize option. It labels
   ticks from the chosen `LabelColumn`; `FormatRowTick` shortens times to suit the data.
 - `Services/ChartExporter.cs`: save to PNG, JPEG or BMP, and copy to the clipboard.
@@ -48,15 +53,19 @@ The app is under `SSHRtmLogVisualizer/`; tests are under `tests/`.
 - `MainWindow.axaml(.cs)`: layout, file dialogs and chart hosting. `TryLoadFile` is the single entry for loading.
 - `Properties/PublishProfiles/`: `win-x64` and `linux-x64` self-contained single-file profiles.
 - `docs/`: the README's screenshots, a Word user guide, and `samples/`: made-up files only (`weather.csv`, daily data;
-  `web01-20260827-150110.csv`, an SSHRTM dump for a pretend host). `.gitignore` keeps every other `.csv` out.
+  `web01-20260827-150110.csv`, an SSHRTM dump for a pretend host; `combined-20261106-141500.csv`, a combined log of
+  three pretend servers, written by `make_combined_sample.py`). `.gitignore` keeps every other `.csv` out.
 - `tests/SSHRtmLogVisualizer.Tests/`: xUnit v3.
   - `CsvReaderTests`: the reader on many CSV shapes.
   - `ViewModelTests`: loading into the view model, plus tick and title text.
   - `WindowTests`: the window with the weather sample, on Avalonia.Headless.
+  - `CombinedLogTests`: combined logs in the reader and the view model (servers, filter, compare, title).
   - `ScreenshotTests`: the README's SSHRTM pictures, from the made-up dump, checking what each shows.
 
 ## Rules that keep it working
 
+- **A combined log is still just a CSV.** Its servers come only from `server::measure` column names; a file
+  without them reads exactly as before. Use `DisplayName` where people read a measure, `Name` (unique) as its key.
 - **Nothing is hardcoded to one host or format.** Measures, presets, the header, the separator and the time column
   all come from the loaded file. A new preset is a name and regex in `PresetDefinitions`; one that matches nothing
   simply doesn't show.
@@ -81,7 +90,8 @@ The app is under `SSHRtmLogVisualizer/`; tests are under `tests/`.
 - If the UI changes, refresh the screenshots in `docs/screenshots/` and update `README.md` to match.
   All of them come from the tests: set `CSVVIZ_SHOTS` to a folder, run `dotnet test`, and copy the PNGs over.
   `ScreenshotTests` takes 01 to 07 from the made-up dump `docs/samples/web01-20260827-150110.csv`, with popups drawn
-  in the window's overlay layer so they're in the picture; `WindowTests` takes 08 from `docs/samples/weather.csv`.
+  in the window's overlay layer so they're in the picture; `WindowTests` takes 08 from `docs/samples/weather.csv`;
+  `ScreenshotTests` takes 09 from `docs/samples/combined-20261106-141500.csv`.
 
 ## CI and releases
 

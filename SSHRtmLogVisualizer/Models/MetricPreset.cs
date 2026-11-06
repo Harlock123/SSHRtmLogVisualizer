@@ -26,7 +26,7 @@ public sealed class MetricPreset
     public ICommand AddCommand { get; }
 
     public string Tooltip => Matches.Count == 1
-        ? $"Add 1 measure: {Matches[0].Name}"
+        ? $"Add 1 measure: {Matches[0].DisplayName}"
         : $"Add {Matches.Count:N0} measures";
 
     /// <summary>Button caption: the name plus how many measures it will add.</summary>

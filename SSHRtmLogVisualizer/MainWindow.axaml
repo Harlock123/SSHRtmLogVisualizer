@@ -78,7 +78,7 @@
                 Padding="10"
                 Margin="0,0,0,10"
                 IsEnabled="{Binding IsFileLoaded}">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" RowDefinitions="Auto,Auto">
                 <TextBlock Grid.Column="0"
                            VerticalAlignment="Center"
                            Margin="0,0,8,0"
@@ -111,7 +111,7 @@
                                          SelectionMode="Multiple,Toggle">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate x:DataType="models:MetricColumn">
-                                            <TextBlock Text="{Binding Name}" />
+                                            <TextBlock Text="{Binding DisplayName}" />
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
@@ -152,6 +152,55 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
+
+                <!-- An SSHRTM combined log: which servers' measures to offer, and one measure across them all. -->
+                <TextBlock Grid.Row="1" Grid.Column="0"
+                           IsVisible="{Binding IsCombined}"
+                           VerticalAlignment="Center"
+                           Margin="0,10,8,0"
+                           Text="Servers:" />
+                <ItemsControl Grid.Row="1" Grid.Column="1"
+                              Name="ServerChoices"
+                              IsVisible="{Binding IsCombined}"
+                              Margin="0,10,0,0"
+                              VerticalAlignment="Center"
+                              ItemsSource="{Binding ServerOptions}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="models:ServerOption">
+                            <CheckBox Margin="0,0,14,0"
+                                      Content="{Binding Name}"
+                                      IsChecked="{Binding IsChecked, Mode=TwoWay}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Grid.Row="1" Grid.Column="2"
+                           IsVisible="{Binding IsCombined}"
+                           VerticalAlignment="Center"
+                           Margin="16,10,8,0"
+                           Text="Compare:" />
+                <StackPanel Grid.Row="1" Grid.Column="3"
+                            IsVisible="{Binding IsCombined}"
+                            Orientation="Horizontal"
+                            Spacing="8"
+                            Margin="0,10,0,0">
+                    <ComboBox Name="CompareChoice"
+                              MinWidth="220"
+                              MaxWidth="280"
+                              VerticalAlignment="Center"
+                              ItemsSource="{Binding CompareMeasures}"
+                              SelectedItem="{Binding SelectedCompareMeasure, Mode=TwoWay}"
+                              ToolTip.Tip="A measure every server has. Add puts it on the list once for each ticked server, so the servers can be compared on one chart." />
+                    <Button Name="CompareButton"
+                            Padding="12,6"
+                            VerticalAlignment="Center"
+                            Content="Add for each server"
+                            Command="{Binding CompareAcrossServersCommand}" />
+                </StackPanel>
             </Grid>
         </Border>
 
@@ -203,7 +252,7 @@
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="models:MetricColumn">
                                 <StackPanel Spacing="1">
-                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" />
                                     <TextBlock Classes="hint" Text="{Binding RangeSummary}" />
                                 </StackPanel>
                             </DataTemplate>
